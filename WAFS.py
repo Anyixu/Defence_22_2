@@ -1,3 +1,5 @@
+import statistics
+
 import pandas as pd
 import numpy as np
 from sklearn import svm
@@ -13,17 +15,16 @@ def estimate_s(x, y, vectorizer, text, s_method=False):
     SEED = 2000
     x_train, x_test, y_train, y_test = train_test_split(text, y, test_size=.2, random_state=SEED)
     x_train_features, x_test_features, y_train, y_test = train_test_split(x, y, test_size=.2, random_state=SEED)
-    # try:
-    result = mean(whitebox(x_train, x_test, x_train_features, x_test_features, y_train, y_test, x.columns, vectorizer,
+    try:
+        result = mean(whitebox(x_train, x_test, x_train_features, x_test_features, y_train, y_test, x.columns, vectorizer,
                            PGDonly=s_method))
     # except:
     #     try:
     #         result = mean(
     #             whitebox(x_train, x_test, x_train_features, x_test_features, y_train, y_test, x.columns, vectorizer,
     #                      PGDonly=s_method))
-    #     except:
-    #
-    #         result = 0
+    except statistics.StatisticsError:
+        result = -1
     print("mean distance: ", result)
     return result
 
