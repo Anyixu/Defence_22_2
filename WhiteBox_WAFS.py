@@ -51,7 +51,7 @@ def pdg_attack(clf_lin, tr_set, ts_set, y_test, feature_names, nb_attack, dmax, 
     ori_examples2_x = []
     ori_examples2_y = []
     idx_candidates = np.where(y_test == class_to_attack)
-    print('total example: ', len(idx_candidates[0]))
+    # print('total example: ', len(idx_candidates[0]))
     for i in idx_candidates[0]:
         # take a point at random being the starting point of the attack
         # # select nb_init_pts points randomly in candidates and make them move
@@ -73,7 +73,7 @@ def pdg_attack(clf_lin, tr_set, ts_set, y_test, feature_names, nb_attack, dmax, 
 
     solver_params = {
         'eta': 0.3,
-        'max_iter': 1000,
+        'max_iter': 100,
         'eps': 1e-4}
 
     # set lower bound and upper bound respectively to 0 and 1 since all features are Boolean
@@ -109,9 +109,10 @@ def pdg_attack(clf_lin, tr_set, ts_set, y_test, feature_names, nb_attack, dmax, 
 
         ad_examples_x.append(adv_ds_pgd.X.tondarray()[0])
         ad_examples_y.append(y_pred_pgd.item())
-
+        # print("original feature:", ori_examples2_x[i])
+        # print("attack feature:", adv_ds_pgd.X.tondarray()[0])
         attack_pt = adv_ds_pgd.X.tondarray()[0]
-    print("success:", cnt)
+    print("PGD success rate:", cnt/len(ori_examples2_x))
     ori_examples2_x = np.array(ori_examples2_x)
     ori_examples2_y = np.array(ori_examples2_y)
     ad_examples_x = np.array(ad_examples_x)
@@ -136,6 +137,7 @@ def pdg_attack(clf_lin, tr_set, ts_set, y_test, feature_names, nb_attack, dmax, 
         for i in range(len(ad_success_x)):
             distance.append(cityblock(ori_success[i], ad_success_x[i]))
     result = (ad_success_x - ori_success)
+    print("result", result)
     return result, cnt, ad_success_x, ori_dataframe, ori_examples2_y, distance
 
 
@@ -164,12 +166,12 @@ def magical_word(x_train, x_test, y_train, y_test, result, cnt):
     vect_spam = TfidfVectorizer()
     print('xxxxxxxxxxxxxxxxxxxxx', spam['message'])
     vect_spam.fit_transform(spam['message'])
-    header_spam = vect_spam.get_feature_names()
+    header_spam = vect_spam.get_feature_names_out()
 
     # Tf-idf for ham datasets
     vect_ham = TfidfVectorizer()
     vect_ham.fit_transform(ham['message'])
-    header_ham = vect_ham.get_feature_names()
+    header_ham = vect_ham.get_feature_names_out()
 
     # find unique ham words
     ham_unique = list(set(header_ham).difference(set(header_spam)))
@@ -189,6 +191,7 @@ def magical_word(x_train, x_test, y_train, y_test, result, cnt):
     words14str = ""
     for item in ham_unique_in_top:
         words14str = words14str + " " + item
+    print("magical word: ", words14str)
     return words14str, spam, ham
 
 
@@ -213,15 +216,16 @@ def svm_attack_wothreading(clf_lin, spam_message, words14str, feature_names, vec
             ma_distance = cityblock(j_tf_idf, message_14_tf_idf.to_numpy())
             m2_empty_1 = m2_empty_1 + [ma_distance]
 
-    # print('White box attack with length on SVM:')
-    # print('Number of samples provided:', len(spam_message))
-    # print('Number of crafted sample that got misclassified:', spam_cnt_1)
-    # print('Successful rate:', spam_cnt_1 / len(spam_message))
+    print('White box attack with length on SVM:')
+    print('Number of samples provided:', len(spam_message))
+    print('Number of crafted sample that got misclassified:', spam_cnt_1)
+    print('Successful rate:', spam_cnt_1 / len(spam_message))
+    print("MA distance:", m2_empty_1)
     return m2_empty_1
 
 
 def whitebox(x_train, x_test, x_train_features, x_test_features, y_train, y_test,
-             feature_names, vectorizer, nb_attack=100, dmax=5, PGDonly=False):
+             feature_names, vectorizer, nb_attack=100, dmax=0.6, PGDonly=False):
 
     tr_set, ts_set, clf_lin = train_test_SVM(x_train_features, x_test_features, y_train, y_test)
     lb = np.ndarray.min(x_train_features.to_numpy())
