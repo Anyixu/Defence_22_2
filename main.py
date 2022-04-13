@@ -1,7 +1,4 @@
 from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.linear_model import LogisticRegression
-from sklearn.svm import LinearSVC
-
 from WAFS import wafs
 import pandas as pd
 from sklearn import svm
@@ -14,7 +11,7 @@ df = pd.read_csv('processed_data.csv')
 y = df.label
 x_text = df.astype({'message':'str'}).message
 x_tr, x_ts, y_tr, y_ts = train_test_split(x_text, y, train_size=2500, test_size=2500, random_state=99)
-tvec1 = TfidfVectorizer()
+tvec1 = TfidfVectorizer(max_features=500)
 tvec1.fit(x_tr)
 print("Feaute length: ", len(tvec1.get_feature_names_out()))
 x_tfidf_tr = tvec1.transform(x_tr).toarray()
@@ -39,7 +36,7 @@ print("Accuracy:", metrics.accuracy_score(y_ts, clf.predict(x_feature_ts)))
 # print(x_feature_ts)
 PGD_only = False
 print("PGD only:", PGD_only)
-thread_num = 1
+thread_num = 10
 selected_features = wafs(x_feature_tr, x_feature_ts, y_tr, y_ts, 38, tvec1, x_ts, PGD_only, thread_num)
 x_tr = x_tr[selected_features]
 print("Finished WAFS")

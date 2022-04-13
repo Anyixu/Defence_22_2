@@ -1,3 +1,4 @@
+from secml.array import CArray
 from secml.data import CDataset
 from secml.data.splitter import CDataSplitterKFold
 from secml.ml.classifiers import CClassifierSVM
@@ -13,6 +14,8 @@ import time
 from scipy.spatial.distance import cityblock
 from sklearn import metrics
 
+ham_unique = list(pd.read_csv("ham_unique.csv").columns)
+
 
 def single_transform(message, feature_names, vectorizer):
     d = vectorizer.transform(message).toarray()
@@ -25,45 +28,38 @@ def single_transform(message, feature_names, vectorizer):
 def train_test_SVM(x_train_features, x_test_features, y_train, y_test):
     tr_set = CDataset(x_train_features, y_train)
     # Train the SVM
-    xval_splitter = CDataSplitterKFold()
     clf_lin = CClassifierSVM()
-    xval_lin_params = {'C': [1]}
-    best_lin_params = clf_lin.estimate_parameters(
-        dataset=tr_set,
-        parameters=xval_lin_params,
-        splitter=xval_splitter,
-        metric='accuracy',
-        perf_evaluator='xval'
-    )
+    # xval_splitter = CDataSplitterKFold()
+    # xval_lin_params = {'C': [1]}
+    # best_lin_params = clf_lin.estimate_parameters(
+    #     dataset=tr_set,
+    #     parameters=xval_lin_params,
+    #     splitter=xval_splitter,
+    #     metric='accuracy',
+    #     perf_evaluator='xval'
+    # )
     clf_lin.fit(tr_set.X, tr_set.Y)
-
-    # Test the Classifier
     ts_set = CDataset(x_test_features, y_test)
-    y_pred = clf_lin.predict(ts_set.X)
-    metric = CMetricAccuracy()
-    acc = metric.performance_score(y_true=ts_set.Y, y_pred=y_pred)
     return tr_set, ts_set, clf_lin
 
 
 def pdg_attack(clf_lin, tr_set, ts_set, y_test, feature_names, nb_attack, dmax, lb, ub, just_pgd):
     class_to_attack = 1
-    cnt = 0  # the number of success adversaril examples
-    ori_examples2_x = []
-    ori_examples2_y = []
     idx_candidates = np.where(y_test == class_to_attack)
-    # print('total example: ', len(idx_candidates[0]))
-    for i in idx_candidates[0]:
-        # take a point at random being the starting point of the attack
-        # # select nb_init_pts points randomly in candidates and make them move
-        # rn = np.random.choice(idx_candidates[0].size, 1)
-        x0, y0 = ts_set[i, :].X, ts_set[i, :].Y
-        x0 = x0.astype(float)
-        y0 = y0.astype(int)
-        x2 = x0.tondarray()[0]
-        y2 = y0.tondarray()[0]
-
-        ori_examples2_x.append(x2)
-        ori_examples2_y.append(y2)
+    ori_examples2_x = ts_set.X.tondarray()[idx_candidates]
+    ori_examples2_y = ts_set.Y.tondarray()[idx_candidates]
+    # for i in idx_candidates[0]:
+    #     # take a point at random being the starting point of the attack
+    #     # # select nb_init_pts points randomly in candidates and make them move
+    #     # rn = np.random.choice(idx_candidates[0].size, 1)
+    #     x0, y0 = ts_set[i, :].X, ts_set[i, :].Y
+    #     x0 = x0.astype(float)
+    #     y0 = y0.astype(int)
+    #     x2 = x0.tondarray()[0]
+    #     y2 = y0.tondarray()[0]
+    #     ori_examples2_x.append(x2)
+    #     ori_examples2_y.append(y2)
+    # print("whole after", ori_examples2_x)
     # Perform adversarial attacks
     noise_type = 'l2'  # Type of perturbation 'l1' or 'l2'
     y_target = 0
@@ -87,37 +83,43 @@ def pdg_attack(clf_lin, tr_set, ts_set, y_test, feature_names, nb_attack, dmax, 
         y_target=y_target
     )
 
-    ad_examples_x = []
-    ad_examples_y = []
-    ad_index = []
-    cnt = 0
-    for i in range(len(ori_examples2_x)):
-        # print("Current Number:", i)
-        x0 = ori_examples2_x[i]
-        y0 = ori_examples2_y[i]
-
-        y_pred_pgd, _, adv_ds_pgd, _ = pgd_attack.run(x0, y0)
-        # print("Original x0 label: ", y0.item())
-        # print("Adversarial example label (PGD): ", y_pred_pgd.item())
-        #
-        # print("Number of classifier gradient evaluations: {:}"
-        #       "".format(pgd_attack.grad_eval))
-
-        if y_pred_pgd.item() == 0:
-            cnt = cnt + 1
-            ad_index.append(i)
-
-        ad_examples_x.append(adv_ds_pgd.X.tondarray()[0])
-        ad_examples_y.append(y_pred_pgd.item())
-        # print("original feature:", ori_examples2_x[i])
-        # print("attack feature:", adv_ds_pgd.X.tondarray()[0])
-        attack_pt = adv_ds_pgd.X.tondarray()[0]
+    x0 = CArray(ori_examples2_x)
+    y0 = CArray(ori_examples2_y)
+    y_pred_pgd, _, adv_ds_pgd, _ = pgd_attack.run(x0, y0)
+    cnt = y_pred_pgd.size - y_pred_pgd.nnz
+    ad_examples_x = adv_ds_pgd.X.tondarray()
+    ad_examples_y = y_pred_pgd.tondarray()
+    # print(ad_examples_x)
+    # print(ad_examples_y)
+    # ad_examples_x = []
+    # ad_examples_y = []
+    # cnt = 0
+    # for i in range(len(ori_examples2_x)):
+    #     # print("Current Number:", i)
+    #     x0 = ori_examples2_x[i]
+    #     y0 = ori_examples2_y[i]
+    #
+    #     y_pred_pgd, _, adv_ds_pgd, _ = pgd_attack.run(x0, y0)
+    #     # print("Original x0 label: ", y0.item())
+    #     # print("Adversarial example label (PGD): ", y_pred_pgd.item())
+    #     #
+    #     # print("Number of classifier gradient evaluations: {:}"
+    #     #       "".format(pgd_attack.grad_eval))
+    #
+    #     # if y_pred_pgd.item() == 0:
+    #     #     cnt = cnt + 1
+    #
+    #     ad_examples_x.append(adv_ds_pgd.X.tondarray()[0])
+    #     ad_examples_y.append(y_pred_pgd.item())
+    #     # print("original feature:", ori_examples2_x[i])
+    #     # print("attack feature:", adv_ds_pgd.X.tondarray()[0])
+    # print(ad_examples_x)
+    # print(ad_examples_y)
     print("PGD success rate:", cnt/len(ori_examples2_x))
     ori_examples2_x = np.array(ori_examples2_x)
     ori_examples2_y = np.array(ori_examples2_y)
     ad_examples_x = np.array(ad_examples_x)
     ad_examples_y = np.array(ad_examples_y)
-
     ori_dataframe = pd.DataFrame(ori_examples2_x, columns=feature_names)
     ad_dataframe = pd.DataFrame(ad_examples_x, columns=feature_names)
 
@@ -137,7 +139,6 @@ def pdg_attack(clf_lin, tr_set, ts_set, y_test, feature_names, nb_attack, dmax, 
         for i in range(len(ad_success_x)):
             distance.append(cityblock(ori_success[i], ad_success_x[i]))
     result = (ad_success_x - ori_success)
-    print("result", result)
     return result, cnt, ad_success_x, ori_dataframe, ori_examples2_y, distance
 
 
@@ -152,7 +153,8 @@ def magical_word(x_train, x_test, y_train, y_test, result, cnt):
     sum_number = sum_number.sort_values(
         by='sum_number', ascending=False, inplace=False)
     sum_number_pd = pd.DataFrame(sum_number.index[:100])
-    sum_number_pd.to_csv("x2result.csv")
+    # sum_number_pd.to_csv("x2result.csv")
+    print(sum_number_pd)
     d = {'message': x_train, 'label': y_train}
     df = pd.DataFrame(data=d)
     d1 = {'message': x_test, 'label': y_test}
@@ -162,30 +164,33 @@ def magical_word(x_train, x_test, y_train, y_test, result, cnt):
     spam = messages[messages.label == 1]
     ham = messages[messages.label == 0]
 
-    # Tf-idf for spam datasets
-    vect_spam = TfidfVectorizer()
-    print('xxxxxxxxxxxxxxxxxxxxx', spam['message'])
-    vect_spam.fit_transform(spam['message'])
-    header_spam = vect_spam.get_feature_names_out()
+    # # Tf-idf for spam datasets
+    # vect_spam = TfidfVectorizer()
+    # vect_spam.fit_transform(spam['message'])
+    # header_spam = vect_spam.get_feature_names_out()
+    #
+    # # Tf-idf for ham datasets
+    # vect_ham = TfidfVectorizer()
+    # vect_ham.fit_transform(ham['message'])
+    # header_ham = vect_ham.get_feature_names_out()
+    #
+    # # find unique ham words
+    # ham_unique = list(set(header_ham).difference(set(header_spam)))
+    # header_ham1 = pd.DataFrame(columns=ham_unique)
+    # header_ham1.to_csv("ham_unique.csv")
 
-    # Tf-idf for ham datasets
-    vect_ham = TfidfVectorizer()
-    vect_ham.fit_transform(ham['message'])
-    header_ham = vect_ham.get_feature_names_out()
+    # ham_unique = list(pd.read_csv("ham_unique.csv").columns)
 
-    # find unique ham words
-    ham_unique = list(set(header_ham).difference(set(header_spam)))
-    header_ham1 = pd.DataFrame(ham_unique)
-    header_ham1.to_csv("ham_unique.csv")
-
-    with open("x2result.csv", "r") as csvfile:
-        reader = csv.reader(csvfile)
-        top100_features = []
-        for row in reader:
-            top100_features.append(row[1])
-    top100_features = top100_features[1:]
+    # with open("x2result.csv", "r") as csvfile:
+    #     reader = csv.reader(csvfile)
+    #     top100_features = []
+    #     for row in reader:
+    #         top100_features.append(row[1])
+    # top100_features = top100_features[1:]
+    # print(top100_features)
+    top100_features = sum_number_pd.to_numpy()[0].astype(str)
+    print("changed top100_features", top100_features)
     # in ham & top100
-
     ham_unique_in_top = list(
         set(ham_unique).intersection(set(top100_features)))
     words14str = ""
@@ -197,29 +202,47 @@ def magical_word(x_train, x_test, y_train, y_test, result, cnt):
 
 def svm_attack_wothreading(clf_lin, spam_message, words14str, feature_names, vectorizer):
     m2_empty_1 = []
-    spam_cnt_1 = 0
-    for j in spam_message.message:
-        choose_email = [j + words14str]
-        message_14_email = pd.DataFrame(choose_email, columns=["message"])
-        message_14_tf_idf = single_transform(message_14_email["message"], feature_names, vectorizer)
-        # message_14_tf_idf = pd.DataFrame(message_14_tf_idf.toarray(), columns=feature_names)
-        message_14_y = [1]
-        message_14_y = pd.Series(message_14_y)
-        message_CData = CDataset(message_14_tf_idf, message_14_y)
-        message_14_pred = clf_lin.predict(message_CData.X)
+    spam_list = spam_message.message.tolist()
+    message_original = pd.DataFrame(spam_list, columns=["message"])
+    spam_list = list(map(lambda orig_string: orig_string + words14str, spam_list))
+    message_14_email = pd.DataFrame(spam_list, columns=["message"])
+    message_14_tf_idf = single_transform(message_14_email["message"], feature_names, vectorizer)
+    message_14_y = pd.Series([1]*len(message_14_tf_idf))
+    message_CData = CDataset(message_14_tf_idf, message_14_y)
+    message_14_pred = clf_lin.predict(message_CData.X)
+    message_14_tf_idf["pred_label"] = message_14_pred.tolist()
+    attack_success = message_14_tf_idf[message_14_tf_idf.pred_label == 0]
+    attack_success.reset_index(inplace=True, drop=True)
+    spam_cnt_1 = len(attack_success)
+    if spam_cnt_1 != 0:
+        success_message_original = message_original[message_14_tf_idf.pred_label == 0]
+        success_original_tfidf = single_transform(success_message_original["message"], feature_names, vectorizer)
+        start_points = success_original_tfidf[feature_names].values
+        end_points = attack_success[feature_names].values
+        for j in range(len(success_original_tfidf)):
+            m2_empty_1 = m2_empty_1 + [cityblock(start_points[j], end_points[j])]
+    # for j in spam_message.message:
+    #     choose_email = [j + words14str]
+    #     message_14_email = pd.DataFrame(choose_email, columns=["message"])
+    #     message_14_tf_idf = single_transform(message_14_email["message"], feature_names, vectorizer)
+    #     # message_14_tf_idf = pd.DataFrame(message_14_tf_idf.toarray(), columns=feature_names)
+    #     message_14_y = [1]
+    #     message_14_y = pd.Series(message_14_y)
+    #     message_CData = CDataset(message_14_tf_idf, message_14_y)
+    #     message_14_pred = clf_lin.predict(message_CData.X)
+    #
+    #     if message_14_pred == 0:
+    #         spam_cnt_1 = spam_cnt_1 + 1
+    #         choose_email_original = [j]
+    #         message_14_email_original = pd.DataFrame(choose_email_original, columns=["message"])
+    #         j_tf_idf = single_transform(message_14_email_original["message"], feature_names, vectorizer)
+    #         ma_distance = cityblock(j_tf_idf, message_14_tf_idf.to_numpy())
+    #         m2_empty_1 = m2_empty_1 + [ma_distance]
 
-        if message_14_pred == 0:
-            spam_cnt_1 = spam_cnt_1 + 1
-            choose_email_original = [j]
-            message_14_email_original = pd.DataFrame(choose_email_original, columns=["message"])
-            j_tf_idf = single_transform(message_14_email_original["message"], feature_names, vectorizer)
-            ma_distance = cityblock(j_tf_idf, message_14_tf_idf.to_numpy())
-            m2_empty_1 = m2_empty_1 + [ma_distance]
-
-    print('White box attack with length on SVM:')
-    print('Number of samples provided:', len(spam_message))
+    # print('White box attack with length on SVM:')
+    # print('Number of samples provided:', len(spam_message))
     print('Number of crafted sample that got misclassified:', spam_cnt_1)
-    print('Successful rate:', spam_cnt_1 / len(spam_message))
+    print('Magic Word Attack Successful rate:', spam_cnt_1 / len(spam_message))
     print("MA distance:", m2_empty_1)
     return m2_empty_1
 
