@@ -25,7 +25,7 @@ def estimate_s(x, y, vectorizer, text, s_method=False):
     #                      PGDonly=s_method))
     except statistics.StatisticsError:
         result = -1
-    print("mean distance: ", result)
+    # print("mean distance: ", result)
     return result
 
 
@@ -33,22 +33,24 @@ def wafs(x_feature_tr, x_feature_ts, y_tr, y_ts, k, vectorizer, text, s_method, 
     initial_features = x_feature_tr.columns.tolist()
     best_features = []
     while len(initial_features) > 0 and len(best_features) < k:
+        start_mian = time.time()
         remaining_features = list(set(initial_features)-set(best_features))
         new_g = pd.Series(index=remaining_features, dtype='float64')
         new_s = pd.Series(index=remaining_features, dtype='float64')
         new_gs = pd.Series(index=remaining_features, dtype='float64')
+        feature_count = 0
         for new_column in remaining_features:
-            # print("Thread %i" % name)
-            # print(x)
+            start = time.time()
+            print("Gone through ",  feature_count, "/", len(remaining_features))
+            feature_count = feature_count + 1
             model = svm.SVC(kernel='linear')
-            # model.fit(data[best_features+[new_column]], target)
             print(best_features + [new_column])
             new_g[new_column] = mean(cross_val_score(model, x_feature_tr[best_features + [new_column]], y_tr, cv=5))
             # Revise bellow line when security scoring is finished
             new_s[new_column] = estimate_s(x_feature_ts[best_features + [new_column]], y_ts, vectorizer, text,
                                            s_method=s_method)
             new_gs[new_column] = new_g[new_column] + lamda * new_s[new_column]
-
+            print("Time used: ", time.time() - start)
         # threads = []
         # remaining = np.array_split(remaining_features, thread_num)
         #
@@ -67,6 +69,7 @@ def wafs(x_feature_tr, x_feature_ts, y_tr, y_ts, k, vectorizer, text, s_method, 
         print("current lambda ", lamda)
         print("current features ", best_features)
         print("current len ", len(best_features))
+        print("Total time for selecting this feature: ", start_mian - time.time())
     return best_features
 
 

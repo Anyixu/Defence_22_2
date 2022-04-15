@@ -24,6 +24,7 @@ def single_transform(message, feature_names, vectorizer):
 
 
 def train_test_SVM(x_train_features, x_test_features, y_train, y_test):
+    start = time.time()
     tr_set = CDataset(x_train_features, y_train)
     # Train the SVM
     clf_lin = CClassifierSVM()
@@ -38,12 +39,12 @@ def train_test_SVM(x_train_features, x_test_features, y_train, y_test):
     # )
     clf_lin.fit(tr_set.X, tr_set.Y)
     ts_set = CDataset(x_test_features, y_test)
-    print("SVM trained")
+    print("SVM training time: ", time.time() - start)
     return tr_set, ts_set, clf_lin
 
 
 def pdg_attack(clf_lin, tr_set, ts_set, y_test, feature_names, nb_attack, dmax, lb, ub, just_pgd):
-    print("Starting PGD")
+    # print("Starting PGD")
     class_to_attack = 1
     idx_candidates = np.where(y_test == class_to_attack)
     ori_examples2_x = ts_set.X.tondarray()[idx_candidates]
@@ -77,9 +78,9 @@ def pdg_attack(clf_lin, tr_set, ts_set, y_test, feature_names, nb_attack, dmax, 
     x0 = CArray(ori_examples2_x)
     y0 = CArray(ori_examples2_y)
 
-    print("running PGD")
+    start = time.time()
     y_pred_pgd, _, adv_ds_pgd, _ = pgd_attack.run(x0, y0)
-    print("finished PGD")
+    print("PGD time: ", time.time() - start)
     cnt = y_pred_pgd.size - y_pred_pgd.nnz
     ad_examples_x = adv_ds_pgd.X.tondarray()
     ad_examples_y = y_pred_pgd.tondarray()
@@ -156,7 +157,8 @@ def magical_word(x_train, x_test, y_train, y_test, result, cnt):
     #         top100_features.append(row[1])
     # top100_features = top100_features[1:]
     # print(top100_features)
-    top100_features = sum_number_pd.to_numpy()[0].astype(str)
+    df.to_numpy().transpose()[0].astype(str)
+    top100_features = sum_number_pd.to_numpy().transpose()[0].astype(str)
     print("changed top100_features", top100_features)
     # in ham & top100
     ham_unique_in_top = list(
@@ -164,7 +166,7 @@ def magical_word(x_train, x_test, y_train, y_test, result, cnt):
     words14str = ""
     for item in ham_unique_in_top:
         words14str = words14str + " " + item
-    print("magical word: ", words14str)
+    # print("magical word: ", words14str)
     return words14str, spam, ham
 
 
@@ -209,9 +211,9 @@ def svm_attack_wothreading(clf_lin, spam_message, words14str, feature_names, vec
 
     # print('White box attack with length on SVM:')
     # print('Number of samples provided:', len(spam_message))
-    print('Number of crafted sample that got misclassified:', spam_cnt_1)
-    print('Magic Word Attack Successful rate:', spam_cnt_1 / len(spam_message))
-    print("MA distance:", m2_empty_1)
+    # print('Number of crafted sample that got misclassified:', spam_cnt_1)
+    print('Magic Word Attack Successful rate:', spam_cnt_1, "/", len(spam_message), " = ", spam_cnt_1/len(spam_message))
+    # print("MA distance:", m2_empty_1)
     return m2_empty_1
 
 
