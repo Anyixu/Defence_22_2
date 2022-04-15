@@ -36,8 +36,8 @@ print("Accuracy:", metrics.accuracy_score(y_ts, clf.predict(x_feature_ts)))
 # print(x_feature_ts)
 PGD_only = False
 print("PGD only:", PGD_only)
-thread_num = 10
-selected_features = wafs(x_feature_tr, x_feature_ts, y_tr, y_ts, 38, tvec1, x_ts, PGD_only, thread_num)
+thread_num = 1
+selected_features = wafs(x_feature_tr, x_feature_ts, y_tr, y_ts, 500, tvec1, x_ts, PGD_only, thread_num)
 x_tr = x_tr[selected_features]
 print("Finished WAFS")
 clf = svm.SVC(kernel='linear')
