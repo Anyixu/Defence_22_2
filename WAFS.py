@@ -38,31 +38,32 @@ def wafs(x_feature_tr, x_feature_ts, y_tr, y_ts, k, vectorizer, text, s_method, 
         new_g = pd.Series(index=remaining_features, dtype='float64')
         new_s = pd.Series(index=remaining_features, dtype='float64')
         new_gs = pd.Series(index=remaining_features, dtype='float64')
-        feature_count = 0
-        for new_column in remaining_features:
-            start = time.time()
-            print("Gone through ",  feature_count, "/", len(remaining_features))
-            feature_count = feature_count + 1
-            model = svm.SVC(kernel='linear')
-            print(best_features + [new_column])
-            new_g[new_column] = mean(cross_val_score(model, x_feature_tr[best_features + [new_column]], y_tr, cv=5))
-            # Revise bellow line when security scoring is finished
-            new_s[new_column] = estimate_s(x_feature_ts[best_features + [new_column]], y_ts, vectorizer, text,
-                                           s_method=s_method)
-            new_gs[new_column] = new_g[new_column] + lamda * new_s[new_column]
-            print("Time used: ", time.time() - start)
-        # threads = []
-        # remaining = np.array_split(remaining_features, thread_num)
-        #
-        # for i in range(thread_num):
-        #     th = Thread(target=best_feat, args=(i, x_feature_tr, x_feature_ts, y_tr, y_ts, vectorizer, text, s_method, lamda, best_features,
-        #                   remaining[i], new_g, new_s, new_gs))
-        #     threads.append(th)
-        #
-        # for t in threads:
-        #     t.start()
-        # for t in threads:
-        #     t.join()
+        # feature_count = 0
+        # for new_column in remaining_features:
+        #     start = time.time()
+        #     print("Gone through ",  feature_count, "/", len(remaining_features))
+        #     feature_count = feature_count + 1
+        #     model = svm.SVC(kernel='linear')
+        #     print(best_features + [new_column])
+        #     new_g[new_column] = mean(cross_val_score(model, x_feature_tr[best_features + [new_column]], y_tr, cv=5))
+        #     # Revise bellow line when security scoring is finished
+        #     new_s[new_column] = estimate_s(x_feature_ts[best_features + [new_column]], y_ts, vectorizer, text,
+        #                                    s_method=s_method)
+        #     new_gs[new_column] = new_g[new_column] + lamda * new_s[new_column]
+        #     print("Time used: ", time.time() - start)
+
+        threads = []
+        remaining = np.array_split(remaining_features, thread_num)
+
+        for i in range(thread_num):
+            th = Thread(target=best_feat, args=(i, x_feature_tr, x_feature_ts, y_tr, y_ts, vectorizer, text, s_method, lamda, best_features,
+                          remaining[i], new_g, new_s, new_gs))
+            threads.append(th)
+
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
 
         lamda = lamda * (new_s.max() ** -1)
         best_features.append(new_gs.idxmax())
@@ -74,9 +75,11 @@ def wafs(x_feature_tr, x_feature_ts, y_tr, y_ts, k, vectorizer, text, s_method, 
 
 
 def best_feat(name, x_feature_tr, x_feature_ts, y_tr, y_ts, vectorizer, text, s_method, lamda, best_features, remaining_features, new_g, new_s, new_gs):
-    x = 0
+    feature_count = 0
     for new_column in remaining_features:
-        x += 1
+        start = time.time()
+        print(name, " gone through ", feature_count, "/", len(remaining_features))
+        feature_count += 1
         # print("Thread %i" % name)
         # print(x)
         model = svm.SVC(kernel='linear')
@@ -86,6 +89,7 @@ def best_feat(name, x_feature_tr, x_feature_ts, y_tr, y_ts, vectorizer, text, s_
         # Revise bellow line when security scoring is finished
         new_s[new_column] = estimate_s(x_feature_ts[best_features + [new_column]], y_ts, vectorizer, text, s_method=s_method)
         new_gs[new_column] = new_g[new_column] + lamda * new_s[new_column]
+        print("Time used: ", time.time() - start)
     return new_s, new_gs
 
 
