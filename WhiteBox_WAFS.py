@@ -1,10 +1,8 @@
 from secml.array import CArray
 from secml.data import CDataset
-from secml.data.splitter import CDataSplitterKFold
 from secml.ml.classifiers import CClassifierSVM
-from secml.ml.peval.metrics import CMetricAccuracy
-from secml.ml.peval.metrics import CMetricConfusionMatrix
-from secml.adv.attacks.evasion import CAttackEvasionPGD
+from secml.adv.attacks.evasion import CAttackEvasionPGD, CAttackEvasionPGDLS, CAttackEvasionPGDExp
+from secml.adv.attacks.evasion.foolbox.fb_attacks.fb_fgm_attack import CFoolboxFGM
 import numpy as np
 import pandas as pd
 from sklearn.feature_extraction.text import TfidfVectorizer
@@ -12,7 +10,7 @@ import csv
 import threading
 import time
 from scipy.spatial.distance import cityblock
-from sklearn import metrics
+
 
 ham_unique = list(pd.read_csv("ham_unique.csv").columns)
 
@@ -40,81 +38,51 @@ def train_test_SVM(x_train_features, x_test_features, y_train, y_test):
     # )
     clf_lin.fit(tr_set.X, tr_set.Y)
     ts_set = CDataset(x_test_features, y_test)
+    print("SVM trained")
     return tr_set, ts_set, clf_lin
 
 
 def pdg_attack(clf_lin, tr_set, ts_set, y_test, feature_names, nb_attack, dmax, lb, ub, just_pgd):
+    print("Starting PGD")
     class_to_attack = 1
     idx_candidates = np.where(y_test == class_to_attack)
     ori_examples2_x = ts_set.X.tondarray()[idx_candidates]
     ori_examples2_y = ts_set.Y.tondarray()[idx_candidates]
-    # for i in idx_candidates[0]:
-    #     # take a point at random being the starting point of the attack
-    #     # # select nb_init_pts points randomly in candidates and make them move
-    #     # rn = np.random.choice(idx_candidates[0].size, 1)
-    #     x0, y0 = ts_set[i, :].X, ts_set[i, :].Y
-    #     x0 = x0.astype(float)
-    #     y0 = y0.astype(int)
-    #     x2 = x0.tondarray()[0]
-    #     y2 = y0.tondarray()[0]
-    #     ori_examples2_x.append(x2)
-    #     ori_examples2_y.append(y2)
-    # print("whole after", ori_examples2_x)
-    # Perform adversarial attacks
     noise_type = 'l2'  # Type of perturbation 'l1' or 'l2'
     y_target = 0
-    # dmax = 0.09  # Maximum perturbation
-
-    # Bounds of the attack space. Can be set to `None` for unbounded
-
     solver_params = {
         'eta': 0.3,
         'max_iter': 100,
         'eps': 1e-4}
 
-    # set lower bound and upper bound respectively to 0 and 1 since all features are Boolean
-    pgd_attack = CAttackEvasionPGD(
+    # pgd_attack = CAttackEvasionPGDExp(
+    #     classifier=clf_lin,
+    #     double_init_ds=tr_set,
+    #     distance=noise_type,
+    #     dmax=dmax,
+    #     lb=lb, ub=None,
+    #     solver_params=solver_params,
+    #     y_target=y_target
+    # )
+    pgd_attack = CFoolboxFGM(
         classifier=clf_lin,
-        double_init_ds=tr_set,
-        distance=noise_type,
-        dmax=dmax,
-        lb=lb, ub=None,
-        solver_params=solver_params,
-        y_target=y_target
+        # double_init_ds=tr1,
+        # double_init=False,
+        # distance=noise_type,
+        # dmax=dmax,
+        # lb=lb, ub=ub,
+        # solver_params=solver_params,
+        # y_target=y_target
     )
-
     x0 = CArray(ori_examples2_x)
     y0 = CArray(ori_examples2_y)
+
+    print("running PGD")
     y_pred_pgd, _, adv_ds_pgd, _ = pgd_attack.run(x0, y0)
+    print("finished PGD")
     cnt = y_pred_pgd.size - y_pred_pgd.nnz
     ad_examples_x = adv_ds_pgd.X.tondarray()
     ad_examples_y = y_pred_pgd.tondarray()
-    # print(ad_examples_x)
-    # print(ad_examples_y)
-    # ad_examples_x = []
-    # ad_examples_y = []
-    # cnt = 0
-    # for i in range(len(ori_examples2_x)):
-    #     # print("Current Number:", i)
-    #     x0 = ori_examples2_x[i]
-    #     y0 = ori_examples2_y[i]
-    #
-    #     y_pred_pgd, _, adv_ds_pgd, _ = pgd_attack.run(x0, y0)
-    #     # print("Original x0 label: ", y0.item())
-    #     # print("Adversarial example label (PGD): ", y_pred_pgd.item())
-    #     #
-    #     # print("Number of classifier gradient evaluations: {:}"
-    #     #       "".format(pgd_attack.grad_eval))
-    #
-    #     # if y_pred_pgd.item() == 0:
-    #     #     cnt = cnt + 1
-    #
-    #     ad_examples_x.append(adv_ds_pgd.X.tondarray()[0])
-    #     ad_examples_y.append(y_pred_pgd.item())
-    #     # print("original feature:", ori_examples2_x[i])
-    #     # print("attack feature:", adv_ds_pgd.X.tondarray()[0])
-    # print(ad_examples_x)
-    # print(ad_examples_y)
     print("PGD success rate:", cnt/len(ori_examples2_x))
     ori_examples2_x = np.array(ori_examples2_x)
     ori_examples2_y = np.array(ori_examples2_y)
