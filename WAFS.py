@@ -16,8 +16,9 @@ def estimate_s(x, y, vectorizer, text, s_method=False):
     x_train, x_test, y_train, y_test = train_test_split(text, y, test_size=.2, random_state=SEED)
     x_train_features, x_test_features, y_train, y_test = train_test_split(x, y, test_size=.2, random_state=SEED)
     try:
-        result = mean(whitebox(x_train, x_test, x_train_features, x_test_features, y_train, y_test, x.columns, vectorizer,
-                           PGDonly=s_method))
+        d, s = whitebox(x_train, x_test, x_train_features, x_test_features, y_train, y_test, x.columns, vectorizer,
+                 PGDonly=s_method)
+        result = mean(d)
     # except:
     #     try:
     #         result = mean(
@@ -25,8 +26,9 @@ def estimate_s(x, y, vectorizer, text, s_method=False):
     #                      PGDonly=s_method))
     except statistics.StatisticsError:
         result = -1
+        s = -1
     # print("mean distance: ", result)
-    return result
+    return result, s
 
 
 def wafs(x_feature_tr, x_feature_ts, y_tr, y_ts, k, vectorizer, text, s_method, thread_num, lamda=0.5):
@@ -47,7 +49,7 @@ def wafs(x_feature_tr, x_feature_ts, y_tr, y_ts, k, vectorizer, text, s_method, 
         #     print(best_features + [new_column])
         #     new_g[new_column] = mean(cross_val_score(model, x_feature_tr[best_features + [new_column]], y_tr, cv=5))
         #     # Revise bellow line when security scoring is finished
-        #     new_s[new_column] = estimate_s(x_feature_ts[best_features + [new_column]], y_ts, vectorizer, text,
+        #     new_s[new_column], s = estimate_s(x_feature_ts[best_features + [new_column]], y_ts, vectorizer, text,
         #                                    s_method=s_method)
         #     new_gs[new_column] = new_g[new_column] + lamda * new_s[new_column]
         #     print("Time used: ", time.time() - start)
@@ -87,7 +89,7 @@ def best_feat(name, x_feature_tr, x_feature_ts, y_tr, y_ts, vectorizer, text, s_
         print(best_features + [new_column])
         new_g[new_column] = mean(cross_val_score(model, x_feature_tr[best_features + [new_column]], y_tr, cv=5))
         # Revise bellow line when security scoring is finished
-        new_s[new_column] = estimate_s(x_feature_ts[best_features + [new_column]], y_ts, vectorizer, text, s_method=s_method)
+        new_s[new_column], s = estimate_s(x_feature_ts[best_features + [new_column]], y_ts, vectorizer, text, s_method=s_method)
         new_gs[new_column] = new_g[new_column] + lamda * new_s[new_column]
         print("Time used: ", time.time() - start)
     return new_s, new_gs

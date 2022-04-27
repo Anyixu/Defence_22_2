@@ -11,8 +11,8 @@ df = pd.read_csv('processed_data.csv')
 y = df.label
 x_text = df.astype({'message':'str'}).message
 x_tr, x_ts, y_tr, y_ts = train_test_split(x_text, y, train_size=2500, test_size=2500, random_state=99)
-tvec1 = TfidfVectorizer()
-tvec1.fit(x_tr)
+tvec1 = TfidfVectorizer(max_features=200000)
+tvec1.fit(x_text)
 print("Feaute length: ", len(tvec1.get_feature_names_out()))
 x_tfidf_tr = tvec1.transform(x_tr).toarray()
 x_feature_tr = pd.DataFrame(x_tfidf_tr, columns=tvec1.get_feature_names_out())
@@ -34,7 +34,7 @@ print("Accuracy:", metrics.accuracy_score(y_ts, clf.predict(x_feature_ts)))
 # print(selector.get_feature_names_out())
 # print(x_feature_tr)
 # print(x_feature_ts)
-PGD_only = False
+PGD_only = True
 print("PGD only:", PGD_only)
 thread_num = 2
 print(x_feature_tr)

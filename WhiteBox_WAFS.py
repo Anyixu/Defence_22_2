@@ -123,7 +123,6 @@ def magical_word(x_train, x_test, y_train, y_test, result, cnt):
         by='sum_number', ascending=False, inplace=False)
     sum_number_pd = pd.DataFrame(sum_number.index[:100])
     # sum_number_pd.to_csv("x2result.csv")
-    print(sum_number_pd)
     d = {'message': x_train, 'label': y_train}
     df = pd.DataFrame(data=d)
     d1 = {'message': x_test, 'label': y_test}
@@ -159,7 +158,6 @@ def magical_word(x_train, x_test, y_train, y_test, result, cnt):
     # print(top100_features)
     df.to_numpy().transpose()[0].astype(str)
     top100_features = sum_number_pd.to_numpy().transpose()[0].astype(str)
-    print("changed top100_features", top100_features)
     # in ham & top100
     ham_unique_in_top = list(
         set(ham_unique).intersection(set(top100_features)))
@@ -214,7 +212,7 @@ def svm_attack_wothreading(clf_lin, spam_message, words14str, feature_names, vec
     # print('Number of crafted sample that got misclassified:', spam_cnt_1)
     print('Magic Word Attack Successful rate:', spam_cnt_1, "/", len(spam_message), " = ", spam_cnt_1/len(spam_message))
     # print("MA distance:", m2_empty_1)
-    return m2_empty_1
+    return m2_empty_1, spam_cnt_1/len(spam_message)
 
 
 def whitebox(x_train, x_test, x_train_features, x_test_features, y_train, y_test,
@@ -228,7 +226,8 @@ def whitebox(x_train, x_test, x_train_features, x_test_features, y_train, y_test
                                                                            PGDonly)
     if not PGDonly:
         words14str, spam, ham = magical_word(x_train, x_test, y_train, y_test, result, cnt)
-        m2_empty = svm_attack_wothreading(clf_lin, spam, words14str, feature_names, vectorizer)
+        m2_empty, srate = svm_attack_wothreading(clf_lin, spam, words14str, feature_names, vectorizer)
     else:
         m2_empty = distance
-    return m2_empty
+        srate = 0
+    return m2_empty, srate
